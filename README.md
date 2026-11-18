@@ -65,11 +65,29 @@ src/
   bot.js        Conversation engine (state machine) — channel-agnostic
   whatsapp.js   WhatsApp Cloud API client (renders replies to API payloads)
   data.js       Products, pricing rules, FAQs — edit to customize
-  store.js      Session store + JSONL event ledger
+  store.js      Session store + event ledger (in-memory + Supabase write-through)
+  supabase.js   Supabase client — env-gated, no-ops when unconfigured
   simulator.js  CLI chat simulator
+supabase/
+  schema.sql    Tables: bot_sessions, bot_events (RLS enabled)
 test/
   bot.test.js   Engine tests
 ```
+
+## Database (Supabase)
+
+The bot persists sessions and every quote/claim/handoff to Supabase when configured.
+
+1. In your [Supabase dashboard](https://supabase.com/dashboard) → **SQL Editor**, run `supabase/schema.sql` — it creates `bot_sessions` and `bot_events` (with RLS enabled).
+2. Copy **Project Settings → API → service_role key** into `.env`:
+   ```
+   SUPABASE_URL=https://owuzgtifqspeapsnpare.supabase.co
+   SUPABASE_SERVICE_KEY=<service_role key>
+   ```
+   The service key bypasses RLS — keep it server-side only, never commit it.
+3. Restart — the server logs `Supabase persistence enabled.`
+
+Without credentials the bot still runs fully on in-memory sessions + `data/events.jsonl`.
 
 ## Customizing
 
