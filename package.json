@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "simulate": "node src/simulator.js",
+    "db:check": "node scripts/check-db.js",
     "test": "node --test \"test/*.test.js\""
   },
   "engines": {

@@ -30,3 +30,7 @@ create index if not exists bot_events_ref_idx   on bot_events (ref_id);
 -- Enable RLS so the anon key (if ever exposed) cannot read customer data.
 alter table bot_sessions enable row level security;
 alter table bot_events   enable row level security;
+
+-- Tell PostgREST to pick up the new tables immediately (avoids
+-- "Could not find the table in the schema cache" on first writes).
+notify pgrst, 'reload schema';
