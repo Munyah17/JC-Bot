@@ -34,6 +34,27 @@ export async function upsertSession(session) {
   if (error) report('upsertSession', error);
 }
 
+export async function fetchSession(phone) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('bot_sessions')
+    .select('*')
+    .eq('phone', phone)
+    .maybeSingle();
+  if (error) {
+    report('fetchSession', error);
+    return null;
+  }
+  if (!data) return null;
+  return {
+    phone: data.phone,
+    state: data.state,
+    data: data.data ?? {},
+    handoff: data.handoff ?? false,
+    updatedAt: new Date(data.updated_at).getTime(),
+  };
+}
+
 export async function deleteSession(phone) {
   if (!supabase) return;
   const { error } = await supabase.from('bot_sessions').delete().eq('phone', phone);

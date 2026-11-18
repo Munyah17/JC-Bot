@@ -3,7 +3,7 @@
 // also mirrored to Supabase when SUPABASE_URL + SUPABASE_SERVICE_KEY are set.
 // A local JSONL ledger remains as a backup audit trail.
 
-import { upsertSession, deleteSession, insertEvent, supabaseEnabled } from './supabase.js';
+import { upsertSession, deleteSession, insertEvent, fetchSession, supabaseEnabled } from './supabase.js';
 
 const sessions = new Map();
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 min idle timeout
@@ -29,20 +29,39 @@ export function resetSession(phone) {
   return getSession(phone);
 }
 
+// Restore a session from Supabase when the in-memory entry is missing/stale.
+// Needed on serverless (Vercel) where each request may hit a cold instance.
+// Await before handleMessage; cheap no-op when the session is already cached.
+export async function hydrateSession(phone) {
+  const s = sessions.get(phone);
+  if (s && Date.now() - s.updatedAt < SESSION_TTL_MS) return;
+  const remote = await fetchSession(phone);
+  if (remote && Date.now() - remote.updatedAt < SESSION_TTL_MS) {
+    sessions.set(phone, remote);
+  }
+}
+
 // Simple append-only ledger for quotes & claims (JSONL, survives restarts).
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+let dataDirOk = true;
+try {
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+} catch {
+  dataDirOk = false; // read-only FS (e.g. Vercel) — JSONL ledger disabled
+}
 
 export function recordEvent(type, payload) {
   const line = JSON.stringify({ type, at: new Date().toISOString(), ...payload }) + '\n';
-  try {
-    appendFileSync(join(DATA_DIR, 'events.jsonl'), line);
-  } catch (e) {
-    console.error('Failed to record event:', e.message);
+  if (dataDirOk) {
+    try {
+      appendFileSync(join(DATA_DIR, 'events.jsonl'), line);
+    } catch (e) {
+      console.error('Failed to record event:', e.message);
+    }
   }
   insertEvent(type, payload); // fire-and-forget
 }

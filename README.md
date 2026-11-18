@@ -74,6 +74,19 @@ test/
   bot.test.js   Engine tests
 ```
 
+## Deploy to Vercel
+
+The repo is Vercel-ready — `api/index.js` exposes the Express app as a serverless function and `vercel.json` routes all traffic to it. Every push to `main` auto-deploys.
+
+1. Import the GitHub repo in Vercel (already done → it deploys on each commit).
+2. In **Vercel → Project → Settings → Environment Variables**, add (` .env` is gitignored and NOT uploaded):
+   - `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `VERIFY_TOKEN`
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
+   - `DRY_RUN` = `true` until Meta credentials are live (webhook processes, replies go to function logs)
+3. Set the Meta webhook URL to `https://<your-project>.vercel.app/webhook`.
+
+**Serverless note:** Supabase is required on Vercel — sessions are hydrated from `bot_sessions` on every message (`hydrateSession`), since cold instances share no memory. The local JSONL ledger is skipped (read-only FS); `bot_events` becomes the only event record.
+
 ## Database (Supabase)
 
 The bot persists sessions and every quote/claim/handoff to Supabase when configured.

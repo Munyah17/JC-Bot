@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import { handleMessage } from './bot.js';
+import { hydrateSession } from './store.js';
 import { sendReplies, markAsRead, extractInput } from './whatsapp.js';
 
 const app = express();
@@ -36,6 +37,7 @@ app.post('/webhook', async (req, res) => {
           const phone = message.from;
           const input = extractInput(message);
 
+          await hydrateSession(phone);
           if (input.startsWith('__unsupported_')) {
             await sendReplies(phone, [
               { text: 'Sorry, I can only handle text messages for now. Type *menu* for options.' },
@@ -60,14 +62,20 @@ app.post('/webhook', async (req, res) => {
 app.get('/', (_req, res) => res.json({ status: 'ok', service: 'jc-insurance-bot' }));
 
 // Local test endpoint: POST /test { "phone": "123", "text": "hi" }
-app.post('/test', (req, res) => {
+app.post('/test', async (req, res) => {
   const { phone = 'test-user', text = '' } = req.body ?? {};
+  await hydrateSession(String(phone));
   const { replies } = handleMessage(String(phone), String(text));
   res.json({ replies });
 });
 
-app.listen(PORT, () => {
-  console.log(`Bot server listening on http://localhost:${PORT}`);
-  console.log(`Webhook: POST/GET http://localhost:${PORT}/webhook`);
-  if (process.env.DRY_RUN === 'true') console.log('DRY_RUN=true — replies logged, not sent to WhatsApp.');
-});
+// On Vercel the app is imported as a serverless handler — no listen() there.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Bot server listening on http://localhost:${PORT}`);
+    console.log(`Webhook: POST/GET http://localhost:${PORT}/webhook`);
+    if (process.env.DRY_RUN === 'true') console.log('DRY_RUN=true — replies logged, not sent to WhatsApp.');
+  });
+}
+
+export default app;
